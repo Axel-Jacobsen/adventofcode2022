@@ -82,3 +82,55 @@ p1(), p2()
     (68802, 205370)
 
 
+
+## Day 2!
+
+
+```julia
+ops = Dict("A" => 0, "X" => 0, "B" => 1, "Y" => 1, "C" => 2, "Z" => 2)
+
+function rps(a, b)
+    if (ops[a] + 0) % 3 == ops[b]
+        3  # draw
+    elseif (ops[a] + 1) % 3 == ops[b]
+        0  # lose
+    elseif (ops[a] + 2) % 3 == ops[b]
+        6  # win
+    end
+end
+
+rps_val(c) = ops[c] + 1
+
+function p1()
+    raw_data = process_inputs(s -> split(s, " "), "02")
+    rps_value(pair) = rps(pair[2], pair[1]) + rps_val(pair[2])
+    mapreduce(rps_value, +, raw_data)
+end
+
+function p2()
+    throw_idxs = ["A", "B", "C"]
+    result_matrix = [
+        ["Y" "X" "Z"]
+        ["Z" "Y" "X"]
+        ["X" "Z" "Y"]
+    ]
+    raw_data = process_inputs(s -> split(s, " "), "02")
+
+    function strategy(pair)
+        their_throw = findfirst(s -> s == pair[1], throw_idxs)
+        my_throw_idx = findfirst(s -> s == pair[2], result_matrix[:, their_throw])
+        my_throw = throw_idxs[my_throw_idx]
+        rps(my_throw, pair[1]) + rps_val(my_throw)
+    end
+    mapreduce(strategy, +, raw_data)
+end
+
+p1(), p2()
+```
+
+
+
+
+    (12772, 11618)
+
+
