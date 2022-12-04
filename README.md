@@ -13,18 +13,14 @@ function quantify(predicate::Function, data)
     mapreduce(predicate, +, data)
 end
 
-
-function process_inputs(day::String)
-    open("inputs/d$day.txt", "r") do io
-        map(s -> parse(Int64, s), eachline(io))
-    end
-end
-
 function process_inputs(convert::Function, day::String)
     open("inputs/d$day.txt", "r") do io
         map(s -> convert(s), eachline(io))
     end
 end
+
+process_inputs(day::String) = process_inputs(s -> s, day)
+process_inputs(::Type{Int}, day::String) = process_inputs(s -> parse(Int64, s), day)
 
 function matrix_inputs(day::String)
     process_inputs(day) do line
@@ -35,6 +31,8 @@ function matrix_inputs(day::String)
 end
 
 clockmod(i::Int, m::Int) = i % m == 0 ? m : i % m
+
+alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 cartdirs = ((-1, 0), (1, 0), (0, -1), (0, 1))
 diagdirs = ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, 1), (1, 1), (-1, -1), (1, -1))
@@ -134,3 +132,68 @@ p1(), p2()
     (12772, 11618)
 
 
+
+## Day 3!
+
+
+```julia
+function p1()
+    data = process_inputs(
+        # split each line in half and take the common letter in each half
+        s -> intersect(Set(s[1:length(s)÷2]), Set(s[length(s)÷2+1:end])),
+        "03",
+    )
+    mapreduce(+, data) do sv
+        # for each letter, get it's value
+        letter = pop!(sv)
+        findfirst(s -> s == letter, alphabet)
+    end
+end
+
+group_n(arr, n::Int) = [arr[i:i+n-1] for i = 1:n:(length(arr)÷n)]
+
+function p2()
+    # get each line of data for day 3 as a vector of strings
+    data = process_inputs("03")
+    println(length(data))
+    elf_groups = group_n(data, 3)
+    elf_group_ids = [pop!(intersect(g...)) for g in elf_groups]
+    println(length(elf_group_ids))
+    mapreduce(+, elf_group_ids) do letter
+        findfirst(s -> s == letter, alphabet)
+    end
+end
+
+p1(), p2()
+```
+
+    300
+    34
+
+
+
+
+
+    (8243, 989)
+
+
+
+
+```julia
+group_n([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2)
+```
+
+
+
+
+    3-element Vector{Vector{Int64}}:
+     [1, 2]
+     [3, 4]
+     [5, 6]
+
+
+
+
+```julia
+
+```
