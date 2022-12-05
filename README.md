@@ -150,15 +150,14 @@ function p1()
     end
 end
 
-group_n(arr, n::Int) = [arr[i:i+n-1] for i = 1:n:(length(arr)÷n)]
+group_n(arr, n::Int) = [arr[i:i+n-1] for i = 1:n:length(arr)]
 
 function p2()
     # get each line of data for day 3 as a vector of strings
     data = process_inputs("03")
-    println(length(data))
     elf_groups = group_n(data, 3)
     elf_group_ids = [pop!(intersect(g...)) for g in elf_groups]
-    println(length(elf_group_ids))
+
     mapreduce(+, elf_group_ids) do letter
         findfirst(s -> s == letter, alphabet)
     end
@@ -167,33 +166,50 @@ end
 p1(), p2()
 ```
 
-    300
-    34
 
 
 
+    (8243, 2631)
 
 
-    (8243, 989)
 
-
+## Day 4!
 
 
 ```julia
-group_n([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2)
+function get_d04_data()
+    process_inputs("04") do str
+        # parse eg string "5-7,4-9" into Vector{UnitRange}[5:7,4:9]
+        elf_assignment_strs = split(str, ",")
+        elf_assignment_ranges = map(elf_assignment_strs) do s
+            (s0, s1) = split(s, "-")
+            parse(Int64, s0):parse(Int64, s1)
+        end
+    end
+end
+
+function p1()
+    quantify(get_d04_data()) do (r1, r2)
+        # if the intersect is r1 or r2, r1 or
+        # r2 is entirely overlaps the other
+        intersect(r1, r2) in (r1, r2)
+    end
+end
+
+function p2()
+    quantify(get_d04_data()) do (r1, r2)
+        # if the intersect is empty, r1 and
+        # r2 do not overlap
+        intersect(r1, r2) |> collect |> isempty |> Base.:!
+    end
+end
+
+p1(), p2()
 ```
 
 
 
 
-    3-element Vector{Vector{Int64}}:
-     [1, 2]
-     [3, 4]
-     [5, 6]
+    (509, 870)
 
 
-
-
-```julia
-
-```
