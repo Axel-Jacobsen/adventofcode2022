@@ -19,6 +19,15 @@ function process_inputs(convert::Function, day::String)
     end
 end
 
+function get_first(itr, pred::Function)
+    # there must be a native julia fcn to do this
+    for v in itr
+        if pred(v)
+            return v
+        end
+    end
+end
+
 process_inputs(day::String) = process_inputs(s -> s, day)
 process_inputs(::Type{Int}, day::String) = process_inputs(s -> parse(Int64, s), day)
 
@@ -211,5 +220,288 @@ p1(), p2()
 
 
     (509, 870)
+
+
+
+## Day 5!
+
+
+```julia
+function process_init_str_state(init_str_state)
+    cleaned_strs = split(init_str_state, "\n")
+    stack_strs = cleaned_strs[1:end-1, 1]
+    numbers_str = cleaned_strs[end, 1]
+
+    # get indexes of columns of boxes
+    indexes::Vector{Int} = []
+    for (i, col) in enumerate(numbers_str)
+        if isdigit(col)
+            push!(indexes, i)
+        end
+    end
+
+    # create actual stacks of chars
+    stacks = [Stack{Char}() for _ = 1:length(indexes)]
+    for (j, index) in enumerate(indexes)
+        for k = length(stack_strs):-1:1
+            letter = stack_strs[k][index]
+            if letter != ' '
+                push!(stacks[j], letter)
+            end
+        end
+    end
+    stacks
+end
+
+function process_command_strs(command_strs)
+    map(split(strip(command_strs), "\n")) do line
+        # format is 'move n from x to y'
+        num_strs = match(r"move (\d+) from (\d+) to (\d+)", line)
+        (n, from, to) = map(s -> parse(Int64, s), num_strs.captures)
+        (n, from, to)
+    end
+end
+
+function process_d05_inputs()
+    (initial_str_state, command_strs) =
+        read("inputs/d05.txt", String) |> s -> split(s, "\n\n")
+
+    stacks = initial_str_state |> process_init_str_state
+    commands = command_strs |> process_command_strs
+    stacks, commands
+end
+
+function peek_top_boxes(stacks)
+    map(first, stacks) |> String
+end
+
+
+function p1()
+    stacks, commands = process_d05_inputs()
+    for command in commands
+        n, from, to = command
+        for i = 1:n
+            push!(stacks[to], pop!(stacks[from]))
+        end
+    end
+    peek_top_boxes(stacks)
+end
+
+function p2()
+    stacks, commands = process_d05_inputs()
+    for command in commands
+        n, from, to = command
+        from_vals = [pop!(stacks[from]) for _ = 1:n]
+        for v in Iterators.reverse(from_vals)
+            push!(stacks[to], v)
+        end
+    end
+    peek_top_boxes(stacks)
+end
+
+p1(), p2()
+```
+
+
+
+
+    ("QGTHFZBHV", "MGDMPSZTM")
+
+
+
+## Day 6!
+
+
+```julia
+function first_n_unique(str::String, n::Int)::Int
+    chrs = Queue{Char}()
+    for (i, letter) in enumerate(str)
+        if length(chrs) == n
+            dequeue!(chrs)
+        end
+        enqueue!(chrs, letter)
+        if unique(chrs) |> length == n
+            return i
+        end
+    end
+    i
+end
+
+start_of_packet_idx(data) = first_n_unique(data, 4)
+start_of_message_idx(data) = first_n_unique(data, 14)
+
+
+function p1()
+    data = read("inputs/d06.txt", String)
+    start_of_packet_idx(data)
+end
+
+function p2()
+    data = read("inputs/d06.txt", String)
+    start_of_message_idx(data)
+end
+
+p1(), p2()
+```
+
+
+
+
+    (1855, 3256)
+
+
+
+## Day 7!
+
+
+```julia
+struct File
+    name::AbstractString
+    size::Int
+end
+
+mutable struct Folder
+    name::AbstractString
+    parent::Union{Folder,Nothing}
+    files::Vector{Union{File,Folder}}
+
+    Folder(name::AbstractString) = new(name, nothing, Vector{File}())
+    Folder(name::AbstractString, parent::Folder) = new(name, parent, Vector{File}())
+    Folder(name::String, parent::Folder, files::Vector{File}) = new(name, files)
+end
+
+
+is_cmd = startswith("\$ ")
+is_dir = startswith("dir ")
+is_file = startswith(r"\d+")
+
+function get_folder(folder_str::String, current_dir::Folder)::Folder
+    name = split(folder_str, " ")[end]
+    Folder(name, current_dir)
+end
+
+function get_file(file_str)::File
+    (filesize_str, name) = split(file_str, " ")
+    File(name, parse(Int, filesize_str))
+end
+
+function get_cmd(s)::Vector{String}
+    cmd_vec = replace(s, "\$ " => "") |> s -> split(s, " ")
+    if length(cmd_vec) == 1
+        # if cmd doesn't have args, just set arg to be ""
+        Vector{String}([cmd_vec[1], ""])
+    else
+        cmd_vec
+    end
+end
+
+function execute_cd(folder::Folder, name::String)::Folder
+    if name == ".."
+        folder.parent
+    else
+        get_first(folder.files, f -> f.name == name)
+    end
+end
+
+function process_terminal_command_history(day)
+    data = process_inputs(day)
+    num_lines = length(data)
+
+    @assert (data[1] == "\$ cd /")
+
+    root_folder = Folder("/")
+    current_folder = root_folder
+
+    i = 2
+    next_line = data[i]
+    while i <= num_lines
+        @assert is_cmd(next_line)
+        cmd, arg = get_cmd(next_line)
+
+        if cmd == "ls"
+            i += 1
+            next_line = data[i]
+            while !is_cmd(next_line)
+                if is_dir(next_line)
+                    push!(current_folder.files, get_folder(next_line, current_folder))
+                elseif is_file(next_line)
+                    push!(current_folder.files, get_file(next_line))
+                else
+                    @warn "unknown line in ls $(next_line)"
+                end
+                i += 1
+                if i > num_lines
+                    break
+                end
+                next_line = data[i]
+            end
+        elseif cmd == "cd"
+            current_folder = execute_cd(current_folder, arg)
+            i += 1
+            next_line = data[i]
+        else
+            @warn "unknown cmd $(cmd)"
+        end
+    end
+    root_folder
+end
+
+function get_folder_size(
+    folder::Folder,
+    subfolders::Union{Vector{Tuple{Folder,Int}},Nothing} = nothing,
+)
+    total_fs = mapreduce(+, folder.files) do fd
+        if isa(fd, File)
+            fd.size
+        else
+            folder_size, _ = get_folder_size(fd, subfolders)
+            if subfolders != nothing
+                push!(subfolders, (fd, folder_size))
+            end
+            folder_size
+        end
+    end
+
+    if subfolders != nothing
+        total_fs, subfolders
+    else
+        total_fs
+    end
+end
+
+function p1()
+    root_folder = process_terminal_command_history("07")
+    root_folder_size, folder_sizes =
+        get_folder_size(root_folder, Vector{Tuple{Folder,Int}}())
+
+    s = 0
+    for (folder, fs) in folder_sizes
+        if fs <= 100000
+            s += fs
+        end
+    end
+    s
+end
+
+function p2()
+    root_folder = process_terminal_command_history("07")
+    root_folder_size, folder_sizes =
+        get_folder_size(root_folder, Vector{Tuple{Folder,Int}}())
+
+    mem_required_for_update = root_folder_size - (70000000 - 30000000)
+    for (folder, fs) in sort(folder_sizes, by = x -> x[2])
+        if fs > mem_required_for_update
+            return fs
+        end
+    end
+end
+
+p1(), p2()
+```
+
+
+
+
+    (1644735, 1300850)
 
 
